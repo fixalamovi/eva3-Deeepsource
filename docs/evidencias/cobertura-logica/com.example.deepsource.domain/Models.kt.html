@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Models.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.domain</a> &gt; <span class="el_source">Models.kt</span></div><h1>Models.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.domain
+
+import java.time.LocalDate
+import java.time.YearMonth
+import java.util.Locale
+import java.util.UUID
+import kotlin.math.roundToInt
+
+<span class="fc" id="L9">val Spanish = Locale.forLanguageTag(&quot;es-CL&quot;)</span>
+
+<span class="fc" id="L11">data class Session(</span>
+<span class="pc" id="L12">    val uid: String, val name: String, val email: String,</span>
+<span class="pc" id="L13">    val role: String = &quot;DEV&quot;, val demo: Boolean = false,</span>
+<span class="fc" id="L14">    val provider: String = &quot;Correo&quot;, val token: String = &quot;&quot;,</span>
+<span class="pc" id="L15">    val refreshToken: String = &quot;&quot;, val expiresAt: Long = 0</span>
+<span class="fc" id="L16">) {</span>
+<span class="fc bfc" id="L17" title="All 2 branches covered.">    val workspace get() = if (demo) &quot;demo&quot; else uid</span>
+<span class="fc" id="L18">    val initials get() = name.trim().split(Regex(&quot;\\s+&quot;)).take(2).joinToString(&quot;&quot;) { it.take(1) }.uppercase(Spanish)</span>
+}
+
+<span class="pc" id="L21">data class Project(val id: String, val name: String, val client: String,</span>
+<span class="pc" id="L22">    val estimateMinutes: Int, val teamEstimateMinutes: Int, val color: Long)</span>
+
+<span class="fc" id="L24">data class ProjectTask(val id: String, val projectId: String, val name: String)</span>
+
+<span class="pc" id="L26">val DefaultTaskNames = listOf(&quot;Planificación&quot;, &quot;Desarrollo&quot;, &quot;Pruebas&quot;, &quot;Documentación&quot;)</span>
+
+<span class="pc" id="L28">data class TimeEntry(val id: Long = 0, val uid: String, val userName: String,</span>
+<span class="fc" id="L29">    val projectId: String, val day: LocalDate, val seconds: Long, val task: String,</span>
+<span class="fc" id="L30">    val source: String = &quot;Manual&quot;, val taskId: String? = null)</span>
+
+<span class="pc" id="L32">data class RunningTimer(val projectId: String, val task: String,</span>
+<span class="pc" id="L33">    val accumulatedMs: Long = 0, val startedWall: Long = 0,</span>
+<span class="pc" id="L34">    val startedElapsed: Long = 0, val boot: Int = 0, val taskId: String? = null,</span>
+<span class="pc" id="L35">    val clientId: String = UUID.randomUUID().toString()) {</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">    val running get() = startedWall &gt; 0</span>
+<span class="fc" id="L37">    fun elapsed(wall: Long, elapsed: Long, currentBoot: Int): Long = accumulatedMs +</span>
+<span class="fc bfc" id="L38" title="All 4 branches covered.">        if (!running) 0 else if (boot == currentBoot) (elapsed - startedElapsed).coerceAtLeast(0)</span>
+<span class="fc" id="L39">        else (wall - startedWall).coerceAtLeast(0)</span>
+}
+
+<span class="pc" id="L42">data class EntryErrors(val project: String? = null, val duration: String? = null,</span>
+<span class="pc" id="L43">    val minutes: String? = null, val task: String? = null, val date: String? = null) {</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">    val valid get() = listOf(project, duration, minutes, task, date).all { it == null }</span>
+}
+
+<span class="fc" id="L47">fun validateEntry(projectId: String?, hours: String, minutes: String, task: String,</span>
+<span class="fc" id="L48">    day: LocalDate, today: LocalDate = LocalDate.now(), seconds: Int = 0): EntryErrors {</span>
+<span class="fc" id="L49">    val h = hours.toIntOrNull()</span>
+<span class="fc" id="L50">    val m = minutes.toIntOrNull()</span>
+<span class="fc bfc" id="L51" title="All 4 branches covered.">    val minutesError = if (m == null || m !in 0..59) &quot;Usa un valor entre 0 y 59&quot; else null</span>
+<span class="fc" id="L52">    val durationError = when {</span>
+<span class="fc bfc" id="L53" title="All 4 branches covered.">        h == null || h !in 0..24 -&gt; &quot;Usa un valor entre 0 y 24&quot;</span>
+<span class="pc bpc" id="L54" title="1 of 6 branches missed.">        seconds !in 0..59 -&gt; &quot;Revisa los segundos del registro&quot;</span>
+<span class="fc bfc" id="L55" title="All 10 branches covered.">        m != null &amp;&amp; minutesError == null &amp;&amp; h * 3600 + m * 60 + seconds !in 1..86400 -&gt;</span>
+<span class="fc" id="L56">            &quot;El tiempo total debe estar entre 1 segundo y 24 horas&quot;</span>
+<span class="fc" id="L57">        else -&gt; null</span>
+    }
+<span class="fc" id="L59">    return EntryErrors(</span>
+<span class="fc" id="L60">        project = validateProjectSelection(projectId),</span>
+<span class="fc" id="L61">        duration = durationError,</span>
+<span class="fc" id="L62">        minutes = minutesError,</span>
+<span class="fc" id="L63">        task = validateTask(task),</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        date = if (day &gt; today) &quot;La fecha no puede estar en el futuro&quot; else null</span>
+    )
+}
+
+<span class="fc" id="L68">fun List&lt;TimeEntry&gt;.inMonth(month: YearMonth) = filter { YearMonth.from(it.day) == month }</span>
+<span class="fc" id="L69">fun List&lt;TimeEntry&gt;.totalSeconds(projectId: String? = null) =</span>
+<span class="fc bfc" id="L70" title="All 6 branches covered.">    filter { projectId == null || it.projectId == projectId }.sumOf { it.seconds }</span>
+
+<span class="fc" id="L72">fun List&lt;TimeEntry&gt;.forTask(task: ProjectTask): List&lt;TimeEntry&gt; = filter {</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">    it.projectId == task.projectId &amp;&amp;</span>
+<span class="pc bpc" id="L74" title="1 of 6 branches missed.">        (it.taskId == task.id || (it.taskId == null &amp;&amp; it.task.trim().equals(task.name, ignoreCase = true)))</span>
+<span class="fc" id="L75">}</span>
+
+fun durationText(seconds: Long): String {
+<span class="fc" id="L78">    val safe = seconds.coerceAtLeast(0)</span>
+<span class="fc" id="L79">    val h = safe / 3600</span>
+<span class="fc" id="L80">    val m = safe % 3600 / 60</span>
+<span class="fc" id="L81">    return when {</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">        safe == 0L -&gt; &quot;0 h&quot;</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        safe &lt; 60 -&gt; &quot;$safe s&quot;</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        h == 0L -&gt; &quot;$m min&quot;</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        m == 0L -&gt; &quot;$h h&quot;</span>
+<span class="fc" id="L86">        else -&gt; &quot;$h h $m min&quot;</span>
+    }
+}
+
+fun clockText(ms: Long): String {
+<span class="fc" id="L91">    val s = ms.coerceAtLeast(0) / 1000</span>
+<span class="fc" id="L92">    return String.format(Locale.ROOT, &quot;%02d:%02d:%02d&quot;, s / 3600, s % 3600 / 60, s % 60)</span>
+}
+
+fun deviation(seconds: Long, estimateMinutes: Int): Int? =
+<span class="fc bfc" id="L96" title="All 2 branches covered.">    if (estimateMinutes &lt;= 0) null else ((seconds / 60.0 - estimateMinutes) / estimateMinutes * 100).roundToInt()</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

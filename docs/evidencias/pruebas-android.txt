@@ -1,0 +1,13 @@
+Compilando 50 fuentes con 101 dependencias locales
+
+APP_KOTLIN_COMPILE_OK
+
+JUnit version 4.13.2
+.............................................................................
+Time: 1.187
+
+OK (77 tests)
+
+
+
+ANDROID_TEST_KOTLIN_COMPILE_OK (sin ejecuci├│n en dispositivo)

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TimerMinutes.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.domain</a> &gt; <span class="el_source">TimerMinutes.kt</span></div><h1>TimerMinutes.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.domain
+
+import java.util.Locale
+
+// Se redondea una sola vez al terminar, después de sumar todos los tramos activos.
+fun roundedTimerSeconds(elapsedMs: Long): Long {
+<span class="fc bfc" id="L7" title="All 4 branches covered.">    require(elapsedMs &gt; 0) { &quot;Deja transcurrir algo de tiempo antes de guardar&quot; }</span>
+<span class="fc bfc" id="L8" title="All 2 branches covered.">    val minutes = elapsedMs / 60_000 + if (elapsedMs % 60_000 == 0L) 0 else 1</span>
+<span class="fc bfc" id="L9" title="All 4 branches covered.">    require(minutes &lt;= 1440) { &quot;El registro del cronómetro no puede superar 24 horas&quot; }</span>
+<span class="fc" id="L10">    return minutes * 60</span>
+}
+
+<span class="fc" id="L13">fun minuteClockText(elapsedMs: Long, roundUp: Boolean = false): String {</span>
+<span class="fc" id="L14">    val safe = elapsedMs.coerceAtLeast(0)</span>
+<span class="fc bfc" id="L15" title="All 4 branches covered.">    val minutes = safe / 60_000 + if (roundUp &amp;&amp; safe % 60_000 != 0L) 1 else 0</span>
+<span class="fc" id="L16">    return String.format(Locale.ROOT, &quot;%02d:%02d&quot;, minutes / 60, minutes % 60)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

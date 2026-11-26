@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HoursRepository.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.data</a> &gt; <span class="el_source">HoursRepository.kt</span></div><h1>HoursRepository.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.data
+
+import android.content.Context
+import com.example.deepsource.domain.Project
+import com.example.deepsource.domain.ProjectTask
+import com.example.deepsource.domain.RunningTimer
+import com.example.deepsource.domain.Session
+import com.example.deepsource.domain.TimeEntry
+import com.example.deepsource.domain.roundedTimerSeconds
+import com.example.deepsource.BuildConfig
+import java.time.LocalDate
+import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.Closeable
+
+<span class="pc" id="L17">internal data class HoursSnapshot(</span>
+<span class="fc" id="L18">    val projects: List&lt;Project&gt;,</span>
+<span class="fc" id="L19">    val entries: List&lt;TimeEntry&gt;,</span>
+<span class="fc" id="L20">    val timer: RunningTimer?,</span>
+<span class="pc" id="L21">    val tasks: List&lt;ProjectTask&gt; = emptyList()</span>
+<span class="nc" id="L22">)</span>
+
+<span class="nc" id="L24">internal class HoursRepository(context: Context) : Closeable {</span>
+<span class="nc" id="L25">    private val store = LocalStore(context.applicationContext)</span>
+<span class="nc" id="L26">    private val remote = RemoteHoursRepository()</span>
+<span class="nc bnc" id="L27" title="All 2 branches missed.">    private fun usesServer(session: Session) = BuildConfig.USE_SERVER &amp;&amp; !session.demo</span>
+
+<span class="nc" id="L29">    suspend fun read(session: Session): HoursSnapshot = withContext(Dispatchers.IO) {</span>
+<span class="nc bnc" id="L30" title="All 2 branches missed.">        if (usesServer(session)) {</span>
+<span class="nc" id="L31">            val snapshot = remote.read(session)</span>
+<span class="nc" id="L32">            store.cacheServerData(session, snapshot)</span>
+<span class="nc" id="L33">            return@withContext snapshot.copy(timer = store.timer(session))</span>
+        }
+<span class="nc" id="L35">        HoursSnapshot(</span>
+<span class="nc" id="L36">            projects = store.projects(session),</span>
+<span class="nc" id="L37">            entries = store.entries(session),</span>
+<span class="nc" id="L38">            timer = store.timer(session),</span>
+<span class="nc" id="L39">            tasks = store.tasks(session)</span>
+<span class="nc" id="L40">        )</span>
+<span class="nc" id="L41">    }</span>
+
+<span class="nc bnc" id="L43" title="All 2 branches missed.">    suspend fun seedDemo() = withContext(Dispatchers.IO) { store.seedDemo() }</span>
+
+<span class="nc" id="L45">    suspend fun saveEntry(session: Session, entry: TimeEntry, key: String = UUID.randomUUID().toString()): TimeEntry =</span>
+<span class="nc" id="L46">        withContext(Dispatchers.IO) {</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">            if (usesServer(session)) remote.save(session, entry, key)</span>
+<span class="nc" id="L48">            else entry.copy(id = store.saveEntry(session, entry))</span>
+<span class="nc" id="L49">        }</span>
+
+    suspend fun deleteEntry(session: Session, id: Long) =
+<span class="nc" id="L52">        withContext(Dispatchers.IO) {</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">            if (usesServer(session)) remote.delete(session, id) else store.deleteEntry(session, id)</span>
+<span class="nc" id="L54">        }</span>
+
+    suspend fun createProject(session: Session, name: String, client: String, estimate: Int) =
+<span class="nc" id="L57">        withContext(Dispatchers.IO) {</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">            if (usesServer(session)) remote.createProject(session, name, client, estimate)</span>
+<span class="nc" id="L59">            else store.createProject(session, name, client, estimate)</span>
+<span class="nc" id="L60">        }</span>
+
+    suspend fun createTask(session: Session, projectId: String, name: String): ProjectTask =
+<span class="nc" id="L63">        withContext(Dispatchers.IO) {</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">            if (usesServer(session)) remote.createTask(session, projectId, name)</span>
+<span class="nc" id="L65">            else store.createTask(session, projectId, name)</span>
+<span class="nc" id="L66">        }</span>
+    suspend fun saveTimer(session: Session, timer: RunningTimer?) =
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        withContext(Dispatchers.IO) { store.saveTimer(session, timer) }</span>
+
+<span class="nc" id="L70">    suspend fun toggleTimer(session: Session, wall: Long, elapsed: Long, boot: Int, pauseOnly: Boolean = false) =</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        withContext(Dispatchers.IO) { store.toggleTimer(session, wall, elapsed, boot, pauseOnly) }</span>
+
+    suspend fun completeTimer(session: Session, wall: Long, elapsed: Long, boot: Int): TimeEntry =
+<span class="nc" id="L74">        withContext(Dispatchers.IO) {</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">            if (!usesServer(session)) return@withContext store.completeTimer(session, wall, elapsed, boot)</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">            val timer = store.timer(session) ?: error(&quot;No hay un cronómetro activo&quot;)</span>
+<span class="nc" id="L77">            val entry = TimeEntry(uid=session.uid,userName=session.name,projectId=timer.projectId,</span>
+<span class="nc" id="L78">                day=LocalDate.now(),seconds=roundedTimerSeconds(timer.elapsed(wall,elapsed,boot)),</span>
+<span class="nc" id="L79">                task=timer.task,source=&quot;Cronómetro&quot;,taskId=timer.taskId)</span>
+<span class="nc" id="L80">            val saved = remote.save(session,entry,timer.clientId)</span>
+<span class="nc" id="L81">            store.clearCompletedTimer(session,timer.clientId)</span>
+<span class="nc" id="L82">            saved</span>
+<span class="nc" id="L83">        }</span>
+
+<span class="nc" id="L85">    override fun close() = store.close()</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AppState.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource</a> &gt; <span class="el_source">AppState.kt</span></div><h1>AppState.kt</h1><pre class="source lang-java linenums">package com.example.deepsource
+
+import android.app.Application
+import android.graphics.Bitmap
+import android.os.SystemClock
+import android.provider.Settings
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.example.deepsource.data.AuthRepository
+import com.example.deepsource.data.HoursRepository
+import com.example.deepsource.data.HoursSnapshot
+import com.example.deepsource.data.ProfilePhotos
+import com.example.deepsource.data.SessionVault
+import com.example.deepsource.domain.RunningTimer
+import com.example.deepsource.domain.ProjectTask
+import com.example.deepsource.domain.Session
+import com.example.deepsource.domain.TimeEntry
+import com.example.deepsource.widget.HoursWidget
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.YearMonth
+import java.util.UUID
+
+<span class="nc" id="L28">internal class AppState(val application: Application) {</span>
+<span class="nc" id="L29">    val hours = HoursRepository(application)</span>
+<span class="nc" id="L30">    val auth = AuthRepository(application)</span>
+<span class="nc" id="L31">    val photos = ProfilePhotos(application)</span>
+<span class="nc" id="L32">    private val vault = SessionVault(application)</span>
+
+<span class="nc" id="L34">    private var snapshot by mutableStateOf(HoursSnapshot(emptyList(), emptyList(), null))</span>
+<span class="nc" id="L35">    val projects get() = snapshot.projects</span>
+<span class="nc" id="L36">    val records get() = snapshot.entries</span>
+<span class="nc" id="L37">    val timer get() = snapshot.timer</span>
+<span class="nc" id="L38">    val tasks get() = snapshot.tasks</span>
+
+<span class="nc" id="L40">    var session by mutableStateOf&lt;Session?&gt;(null)</span>
+        private set
+<span class="nc" id="L42">    var profilePhoto by mutableStateOf&lt;Bitmap?&gt;(null)</span>
+<span class="nc" id="L43">    var busy by mutableStateOf(false)</span>
+        private set
+<span class="nc" id="L45">    var message by mutableStateOf&lt;String?&gt;(null)</span>
+<span class="nc" id="L46">    var month by mutableStateOf(YearMonth.now())</span>
+
+<span class="nc" id="L48">    var screen by mutableStateOf(&quot;home&quot;)</span>
+        private set
+<span class="nc" id="L50">    var editing by mutableStateOf&lt;TimeEntry?&gt;(null)</span>
+        private set
+<span class="nc" id="L52">    var selectedProject by mutableStateOf&lt;String?&gt;(null)</span>
+        private set
+<span class="nc" id="L54">    var selectedTask by mutableStateOf&lt;String?&gt;(null)</span>
+        private set
+<span class="nc" id="L56">    var entryDraftKey: String = UUID.randomUUID().toString()</span>
+        private set
+<span class="nc" id="L58">    var lastSaved by mutableStateOf&lt;TimeEntry?&gt;(null)</span>
+        private set
+    private var pendingRoute: String? = null
+
+    val boot: Int
+<span class="nc" id="L63">        get() = Settings.Global.getInt(application.contentResolver, Settings.Global.BOOT_COUNT, 0)</span>
+
+    fun elapsedMs(): Long =
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        timer?.elapsed(System.currentTimeMillis(), SystemClock.elapsedRealtime(), boot) ?: 0L</span>
+
+    fun navigate(destination: String) {
+<span class="nc" id="L69">        screen = destination</span>
+<span class="nc" id="L70">    }</span>
+
+<span class="nc" id="L72">    fun acceptRoute(destination: String, project: String? = null) {</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        if (project != null) selectedProject = project</span>
+<span class="nc" id="L74">        selectedTask = null</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if (destination == &quot;entry&quot;) editing = null</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">        if (session == null) pendingRoute = destination else navigate(destination)</span>
+<span class="nc" id="L77">    }</span>
+
+<span class="nc" id="L79">    fun openEntry(entry: TimeEntry? = null, project: String? = null, task: ProjectTask? = null) {</span>
+<span class="nc" id="L80">        entryDraftKey = UUID.randomUUID().toString()</span>
+<span class="nc" id="L81">        editing = entry</span>
+<span class="nc bnc" id="L82" title="All 8 branches missed.">        selectedProject = project ?: entry?.projectId ?: task?.projectId</span>
+<span class="nc bnc" id="L83" title="All 6 branches missed.">        selectedTask = entry?.taskId ?: task?.id</span>
+<span class="nc" id="L84">        navigate(&quot;entry&quot;)</span>
+<span class="nc" id="L85">    }</span>
+
+    fun openProject(project: String) {
+<span class="nc" id="L88">        selectedProject = project</span>
+<span class="nc" id="L89">        selectedTask = null</span>
+<span class="nc" id="L90">        navigate(&quot;project&quot;)</span>
+<span class="nc" id="L91">    }</span>
+
+<span class="nc" id="L93">    fun openTimer(project: String, task: ProjectTask? = null) {</span>
+<span class="nc" id="L94">        selectedProject = project</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        selectedTask = task?.id</span>
+<span class="nc" id="L96">        navigate(&quot;timer&quot;)</span>
+<span class="nc" id="L97">    }</span>
+
+<span class="nc" id="L99">    suspend fun restoreSession() {</span>
+<span class="nc bnc" id="L100" title="All 4 branches missed.">        val restored = withContext(Dispatchers.IO) { vault.read() } ?: return</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if (!auth.canRestore(restored)) {</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            withContext(Dispatchers.IO) { vault.save(null) }</span>
+<span class="nc" id="L103">            return</span>
+        }
+<span class="nc" id="L105">        val restoredPhoto = readProfilePhoto(restored)</span>
+<span class="nc" id="L106">        val restoredHours = hours.read(restored)</span>
+<span class="nc" id="L107">        profilePhoto = restoredPhoto</span>
+<span class="nc" id="L108">        snapshot = restoredHours</span>
+<span class="nc" id="L109">        session = restored</span>
+<span class="nc" id="L110">        applyPendingRoute()</span>
+<span class="nc" id="L111">    }</span>
+
+<span class="nc" id="L113">    suspend fun startSession(account: Session) {</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        if (account.demo) hours.seedDemo()</span>
+<span class="nc" id="L115">        val photo = readProfilePhoto(account)</span>
+<span class="nc" id="L116">        val loadedHours = hours.read(account)</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        withContext(Dispatchers.IO) { vault.save(account) }</span>
+<span class="nc" id="L118">        profilePhoto = photo</span>
+<span class="nc" id="L119">        snapshot = loadedHours</span>
+<span class="nc" id="L120">        session = account</span>
+<span class="nc" id="L121">        applyPendingRoute()</span>
+<span class="nc bnc" id="L122" title="All 6 branches missed.">        if (account.demo &amp;&amp; records.isNotEmpty()) {</span>
+<span class="nc" id="L123">            month = YearMonth.from(records.maxBy { it.day }.day)</span>
+        }
+<span class="nc" id="L125">        updateWidgets()</span>
+<span class="nc" id="L126">    }</span>
+
+    suspend fun updateSession(account: Session) {
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        withContext(Dispatchers.IO) { vault.save(account) }</span>
+<span class="nc" id="L130">        session = account</span>
+<span class="nc" id="L131">    }</span>
+
+    suspend fun endSession() {
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        withContext(Dispatchers.IO) { vault.save(null) }</span>
+<span class="nc" id="L135">        session = null</span>
+<span class="nc" id="L136">        profilePhoto = null</span>
+<span class="nc" id="L137">        snapshot = HoursSnapshot(emptyList(), emptyList(), null)</span>
+<span class="nc" id="L138">        navigate(&quot;home&quot;)</span>
+<span class="nc" id="L139">        editing = null</span>
+<span class="nc" id="L140">        selectedProject = null</span>
+<span class="nc" id="L141">        selectedTask = null</span>
+<span class="nc" id="L142">        lastSaved = null</span>
+<span class="nc" id="L143">        updateWidgets()</span>
+<span class="nc" id="L144">    }</span>
+
+    private fun applyPendingRoute() {
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        navigate(pendingRoute ?: &quot;home&quot;)</span>
+<span class="nc" id="L148">        pendingRoute = null</span>
+<span class="nc" id="L149">    }</span>
+
+    private suspend fun readProfilePhoto(account: Session): Bitmap? =
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        withContext(Dispatchers.IO) { photos.load(account.uid) }</span>
+
+    suspend fun reload() {
+<span class="nc bnc" id="L155" title="All 4 branches missed.">        snapshot = session?.let { hours.read(it) } ?: HoursSnapshot(emptyList(), emptyList(), null)</span>
+<span class="nc" id="L156">    }</span>
+
+    fun replaceTimer(value: RunningTimer?) {
+<span class="nc" id="L159">        snapshot = snapshot.copy(timer = value)</span>
+<span class="nc" id="L160">    }</span>
+
+    suspend fun showReceipt(entry: TimeEntry) {
+<span class="nc" id="L163">        lastSaved = entry</span>
+<span class="nc" id="L164">        month = YearMonth.from(entry.day)</span>
+<span class="nc" id="L165">        editing = null</span>
+<span class="nc" id="L166">        reload()</span>
+<span class="nc" id="L167">        navigate(&quot;success&quot;)</span>
+<span class="nc" id="L168">        updateWidgets()</span>
+<span class="nc" id="L169">    }</span>
+
+    suspend fun createProject(name: String, client: String, estimate: Int) {
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        hours.createProject(requireNotNull(session), name, client, estimate)</span>
+<span class="nc" id="L173">        reload()</span>
+<span class="nc" id="L174">        message = &quot;Proyecto creado&quot;</span>
+<span class="nc" id="L175">    }</span>
+
+<span class="nc" id="L177">    suspend fun createTask(projectId: String, name: String): ProjectTask {</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        val task = hours.createTask(requireNotNull(session), projectId, name)</span>
+<span class="nc" id="L179">        reload()</span>
+<span class="nc" id="L180">        message = &quot;Tarea disponible&quot;</span>
+<span class="nc" id="L181">        return task</span>
+    }
+
+    suspend fun refresh() {
+<span class="nc" id="L185">        reload()</span>
+<span class="nc" id="L186">        updateWidgets()</span>
+<span class="nc" id="L187">    }</span>
+
+<span class="nc bnc" id="L189" title="All 2 branches missed.">    suspend fun updateWidgets() = withContext(Dispatchers.IO) {</span>
+<span class="nc" id="L190">        HoursWidget.updateAll(application)</span>
+<span class="nc" id="L191">    }</span>
+
+    fun launchAction(scope: CoroutineScope, block: suspend () -&gt; Unit) {
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        if (busy) return</span>
+<span class="nc" id="L195">        busy = true</span>
+<span class="nc" id="L196">        scope.launch {</span>
+<span class="nc" id="L197">            try {</span>
+<span class="nc" id="L198">                block()</span>
+<span class="nc" id="L199">            } catch (error: CancellationException) {</span>
+<span class="nc" id="L200">                throw error</span>
+<span class="nc" id="L201">            } catch (error: Exception) {</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">                message = error.message ?: &quot;No pudimos completar la acción. Inténtalo de nuevo&quot;</span>
+            } finally {
+<span class="nc" id="L204">                busy = false</span>
+            }
+<span class="nc" id="L206">        }</span>
+<span class="nc" id="L207">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

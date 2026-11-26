@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RemoteHoursRepository.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.data</a> &gt; <span class="el_source">RemoteHoursRepository.kt</span></div><h1>RemoteHoursRepository.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.data
+
+import com.example.deepsource.data.remote.*
+import com.example.deepsource.domain.*
+
+// Las interfaces de Retrofit se pueden sustituir en las pruebas, sin abrir conexiones.
+<span class="pc" id="L7">internal class RemoteHoursRepository(</span>
+<span class="pc" id="L8">    private val projectsApi: ProjectsApi = BackendClient.projects,</span>
+<span class="pc" id="L9">    private val recordsApi: RecordsApi = BackendClient.records</span>
+<span class="nc" id="L10">) {</span>
+<span class="fc" id="L11">    suspend fun read(session: Session): HoursSnapshot {</span>
+<span class="fc" id="L12">        val auth = BackendClient.auth(session)</span>
+<span class="fc" id="L13">        val projects = backendCall { projectsApi.projects(auth) }</span>
+<span class="fc" id="L14">        val tasks = backendCall { projectsApi.tasks(auth) }</span>
+<span class="fc" id="L15">        val entries = backendCall { recordsApi.entries(auth) }.map { it.domain() }</span>
+<span class="fc" id="L16">        return HoursSnapshot(projects, entries, null, tasks)</span>
+    }
+<span class="fc" id="L18">    suspend fun save(session: Session, entry: TimeEntry, key: String): TimeEntry {</span>
+<span class="fc" id="L19">        val auth = BackendClient.auth(session)</span>
+<span class="fc bfc" id="L20" title="All 2 branches covered.">        val body = EntryBody(entry.projectId, requireNotNull(entry.taskId) { &quot;Selecciona una tarea&quot; },</span>
+<span class="fc" id="L21">            entry.day.toString(), entry.seconds, entry.source)</span>
+<span class="fc bfc" id="L22" title="All 2 branches covered.">        val result = if (entry.id == 0L) backendCall { recordsApi.create(auth, key, body) }</span>
+<span class="fc" id="L23">            else backendCall { recordsApi.update(auth, entry.id, body) }</span>
+<span class="fc" id="L24">        return result.domain()</span>
+    }
+    suspend fun delete(session: Session, id: Long) =
+<span class="fc" id="L27">        backendUnit { recordsApi.delete(BackendClient.auth(session), id) }</span>
+    suspend fun createProject(session: Session, name: String, client: String, estimate: Int) {
+<span class="fc" id="L29">        backendCall { projectsApi.createProject(BackendClient.auth(session), ProjectBody(name, client, estimate * 60)) }</span>
+<span class="fc" id="L30">    }</span>
+    suspend fun createTask(session: Session, project: String, name: String): ProjectTask =
+<span class="fc" id="L32">        backendCall { projectsApi.createTask(BackendClient.auth(session), project, TaskBody(name)) }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

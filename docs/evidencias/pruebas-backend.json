@@ -1,0 +1,47 @@
+{
+  "nota": "Pruebas ejecutadas después de retirar el acceso externo. MockMvc y SQLite real temporal; comunicaciones entre servicios sustituidas en proceso.",
+  "suites": [
+    {
+      "clase": "com.deepsource.projects.ProjectsApiTest",
+      "pruebas": 6,
+      "fallos": 0,
+      "errores": 0,
+      "omitidas": 0,
+      "casos": [
+        "defaultTasksAndTaskCrudWorkAndDuplicateNamesReuseTheTask",
+        "passwordChangeRejectsWrongCurrentPasswordAndPersistsTheNewOne",
+        "projectWithRecordsCannotBeDeleted",
+        "invalidProjectAndInvalidEmailCannotCreateData",
+        "projectsAreIsolatedAndCanBeUpdatedAndDeleted",
+        "registrationSessionAndLogoutAreRealAndUnauthorizedReadsAreRejected"
+      ]
+    },
+    {
+      "clase": "com.deepsource.records.hours.ProjectsGatewayTest",
+      "pruebas": 3,
+      "fallos": 0,
+      "errores": 0,
+      "omitidas": 0,
+      "casos": [
+        "rejectedSessionIsNotTreatedAsAnAuthenticatedUser",
+        "sessionContractAcceptsTheProjectsServiceResponseAndForwardsTheToken",
+        "taskContractRetainsItsProjectRelationship"
+      ]
+    },
+    {
+      "clase": "com.deepsource.records.RecordsApiTest",
+      "pruebas": 6,
+      "fallos": 0,
+      "errores": 0,
+      "omitidas": 0,
+      "casos": [
+        "recordsFromAnotherUserCannotBeReadOrDeleted",
+        "futureDatesAndMismatchedProjectsAreRejected",
+        "referencesAndExactMinutesArePreserved",
+        "roundingCannotExceedTheDailyLimit",
+        "severalEntriesForOneTaskCanBeUpdatedDeletedAndSummed",
+        "timerRoundsUpAndRetryDoesNotDuplicateTheRecord"
+      ]
+    }
+  ]
+}

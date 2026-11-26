@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocalStore.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.data</a> &gt; <span class="el_source">LocalStore.kt</span></div><h1>LocalStore.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.data
+
+import android.content.ContentValues
+import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
+import com.example.deepsource.domain.*
+import java.time.LocalDate
+import java.util.UUID
+
+/** Tareas por proyecto y registros por usuario. La versión 2 conserva los datos anteriores. */
+<span class="nc" id="L12">class LocalStore(context: Context) : SQLiteOpenHelper(context, &quot;deepsource.db&quot;, null, 3) {</span>
+<span class="nc" id="L13">    override fun onConfigure(db: SQLiteDatabase) { db.setForeignKeyConstraintsEnabled(true) }</span>
+
+    override fun onCreate(db: SQLiteDatabase) {
+<span class="nc" id="L16">        db.execSQL(&quot;CREATE TABLE projects(id TEXT PRIMARY KEY, workspace TEXT NOT NULL, name TEXT NOT NULL, client TEXT NOT NULL, estimate INTEGER NOT NULL, team_estimate INTEGER NOT NULL, color INTEGER NOT NULL)&quot;)</span>
+<span class="nc" id="L17">        createTasksTable(db)</span>
+<span class="nc" id="L18">        db.execSQL(&quot;CREATE TABLE entries(id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, user_name TEXT NOT NULL, project_id TEXT NOT NULL REFERENCES projects(id), day TEXT NOT NULL, seconds INTEGER NOT NULL CHECK(seconds &gt; 0), task TEXT NOT NULL, source TEXT NOT NULL, task_id TEXT REFERENCES tasks(id), server_id INTEGER)&quot;)</span>
+<span class="nc" id="L19">        db.execSQL(&quot;CREATE INDEX entries_user_day ON entries(uid,day)&quot;)</span>
+<span class="nc" id="L20">        db.execSQL(&quot;CREATE INDEX entries_task ON entries(task_id,uid)&quot;)</span>
+<span class="nc" id="L21">        db.execSQL(&quot;CREATE TABLE timers(uid TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), task TEXT NOT NULL, accumulated INTEGER NOT NULL, wall INTEGER NOT NULL, elapsed INTEGER NOT NULL, boot INTEGER NOT NULL, task_id TEXT REFERENCES tasks(id), client_id TEXT NOT NULL)&quot;)</span>
+<span class="nc" id="L22">        db.execSQL(&quot;CREATE UNIQUE INDEX entries_server_identity ON entries(uid,server_id)&quot;)</span>
+<span class="nc" id="L23">        db.execSQL(&quot;CREATE TABLE flags(name TEXT PRIMARY KEY)&quot;)</span>
+<span class="nc" id="L24">    }</span>
+
+    private fun createTasksTable(db: SQLiteDatabase) {
+<span class="nc" id="L27">        db.execSQL(&quot;CREATE TABLE tasks(id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), name TEXT NOT NULL COLLATE NOCASE, UNIQUE(project_id,name))&quot;)</span>
+<span class="nc" id="L28">    }</span>
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+<span class="nc bnc" id="L31" title="All 2 branches missed.">        if (oldVersion &lt; 2) {</span>
+<span class="nc" id="L32">            createTasksTable(db)</span>
+<span class="nc" id="L33">            db.execSQL(&quot;ALTER TABLE entries ADD COLUMN task_id TEXT REFERENCES tasks(id)&quot;)</span>
+<span class="nc" id="L34">            db.execSQL(&quot;ALTER TABLE timers ADD COLUMN task_id TEXT REFERENCES tasks(id)&quot;)</span>
+<span class="nc" id="L35">            db.execSQL(&quot;CREATE INDEX entries_task ON entries(task_id,uid)&quot;)</span>
+<span class="nc" id="L36">            val projectIds = db.rawQuery(&quot;SELECT id FROM projects&quot;, null).use { cursor -&gt;</span>
+<span class="nc bnc" id="L37" title="All 2 branches missed.">                buildList { while (cursor.moveToNext()) add(cursor.getString(0)) }</span>
+            }
+<span class="nc" id="L39">            projectIds.forEach { project -&gt; DefaultTaskNames.forEach { ensureTask(db, project, it) } }</span>
+            // Las descripciones antiguas se convierten en tareas reutilizables sin borrar registros.
+<span class="nc bnc" id="L41" title="All 2 branches missed.">            for (table in listOf(&quot;entries&quot;, &quot;timers&quot;)) {</span>
+<span class="nc" id="L42">                val previous = db.rawQuery(&quot;SELECT rowid,project_id,task FROM $table&quot;, null).use { cursor -&gt;</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">                    buildList { while (cursor.moveToNext()) add(Triple(cursor.getLong(0), cursor.getString(1), cursor.getString(2))) }</span>
+                }
+<span class="nc" id="L45">                previous.forEach { (row, project, name) -&gt;</span>
+<span class="nc" id="L46">                    val task = ensureTask(db, project, name)</span>
+<span class="nc" id="L47">                    db.update(table, ContentValues().apply { put(&quot;task_id&quot;, task.id) }, &quot;rowid=?&quot;, arrayOf(row.toString()))</span>
+<span class="nc" id="L48">                }</span>
+            }
+        }
+<span class="nc bnc" id="L51" title="All 4 branches missed.">        if (oldVersion &lt; 3 &amp;&amp; newVersion &gt;= 3) {</span>
+<span class="nc" id="L52">            db.execSQL(&quot;ALTER TABLE timers ADD COLUMN client_id TEXT&quot;)</span>
+<span class="nc" id="L53">            db.execSQL(&quot;UPDATE timers SET client_id=lower(hex(randomblob(16))) WHERE client_id IS NULL&quot;)</span>
+<span class="nc" id="L54">            db.execSQL(&quot;ALTER TABLE entries ADD COLUMN server_id INTEGER&quot;)</span>
+<span class="nc" id="L55">            db.execSQL(&quot;CREATE UNIQUE INDEX entries_server_identity ON entries(uid,server_id)&quot;)</span>
+        }
+<span class="nc" id="L57">    }</span>
+
+<span class="nc" id="L59">    fun projects(session: Session): List&lt;Project&gt; = readableDatabase.query(&quot;projects&quot;, null,</span>
+<span class="nc" id="L60">        &quot;workspace=?&quot;, arrayOf(session.workspace), null, null, &quot;rowid&quot;).use { c -&gt;</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        buildList { while(c.moveToNext()) add(Project(c.getString(c.getColumnIndexOrThrow(&quot;id&quot;)),</span>
+<span class="nc" id="L62">            c.getString(c.getColumnIndexOrThrow(&quot;name&quot;)), c.getString(c.getColumnIndexOrThrow(&quot;client&quot;)),</span>
+<span class="nc" id="L63">            c.getInt(c.getColumnIndexOrThrow(&quot;estimate&quot;)), c.getInt(c.getColumnIndexOrThrow(&quot;team_estimate&quot;)),</span>
+<span class="nc" id="L64">            c.getLong(c.getColumnIndexOrThrow(&quot;color&quot;)))) }</span>
+<span class="nc" id="L65">    }</span>
+
+<span class="nc" id="L67">    fun tasks(session: Session): List&lt;ProjectTask&gt; = readableDatabase.rawQuery(</span>
+<span class="nc" id="L68">        &quot;SELECT t.id,t.project_id,t.name FROM tasks t JOIN projects p ON p.id=t.project_id WHERE p.workspace=? ORDER BY t.name COLLATE NOCASE&quot;,</span>
+<span class="nc" id="L69">        arrayOf(session.workspace)</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">    ).use { c -&gt; buildList { while(c.moveToNext()) add(ProjectTask(c.getString(0), c.getString(1), c.getString(2))) } }</span>
+
+    private fun ensureTask(db: SQLiteDatabase, projectId: String, name: String): ProjectTask {
+<span class="nc" id="L73">        val clean = name.trim().replace(Regex(&quot;\\s+&quot;), &quot; &quot;)</span>
+<span class="nc bnc" id="L74" title="All 4 branches missed.">        require(validateTask(clean) == null) { &quot;Ingresa una tarea de 3 a 160 caracteres&quot; }</span>
+<span class="nc" id="L75">        val existing = db.query(&quot;tasks&quot;, arrayOf(&quot;id&quot;, &quot;name&quot;), &quot;project_id=?&quot;, arrayOf(projectId), null, null, null).use { c -&gt;</span>
+<span class="nc" id="L76">            var found: ProjectTask? = null</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">            while (c.moveToNext()) {</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">                if (c.getString(1).equals(clean, ignoreCase = true)) {</span>
+<span class="nc" id="L79">                    found = ProjectTask(c.getString(0), projectId, c.getString(1))</span>
+<span class="nc" id="L80">                    break</span>
+                }
+            }
+<span class="nc" id="L83">            found</span>
+        }
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (existing != null) return existing</span>
+<span class="nc" id="L86">        val task = ProjectTask(UUID.randomUUID().toString(), projectId, clean)</span>
+<span class="nc" id="L87">        db.insertOrThrow(&quot;tasks&quot;, null, ContentValues().apply {</span>
+<span class="nc" id="L88">            put(&quot;id&quot;, task.id); put(&quot;project_id&quot;, task.projectId); put(&quot;name&quot;, task.name)</span>
+<span class="nc" id="L89">        })</span>
+<span class="nc" id="L90">        return task</span>
+    }
+
+    fun createTask(session: Session, projectId: String, name: String): ProjectTask {
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        require(projects(session).any { it.id == projectId }) { &quot;Proyecto no disponible&quot; }</span>
+<span class="nc" id="L95">        val db = writableDatabase</span>
+<span class="nc" id="L96">        db.beginTransaction()</span>
+<span class="nc" id="L97">        try {</span>
+<span class="nc" id="L98">            val task = ensureTask(db, projectId, name)</span>
+<span class="nc" id="L99">            db.setTransactionSuccessful()</span>
+<span class="nc" id="L100">            return task</span>
+<span class="nc" id="L101">        } finally { db.endTransaction() }</span>
+    }
+
+    private fun resolveTask(db: SQLiteDatabase, projectId: String, taskId: String?, name: String): ProjectTask {
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        if (taskId == null) return ensureTask(db, projectId, name)</span>
+<span class="nc" id="L106">        return db.query(&quot;tasks&quot;, arrayOf(&quot;id&quot;,&quot;name&quot;), &quot;id=? AND project_id=?&quot;,</span>
+<span class="nc" id="L107">            arrayOf(taskId, projectId), null, null, null).use { c -&gt;</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">            require(c.moveToFirst()) { &quot;La tarea no pertenece al proyecto seleccionado&quot; }</span>
+<span class="nc" id="L109">            ProjectTask(c.getString(0), projectId, c.getString(1))</span>
+        }
+    }
+
+<span class="nc" id="L113">    fun entries(session: Session): List&lt;TimeEntry&gt; = readableDatabase.rawQuery(</span>
+<span class="nc" id="L114">        &quot;SELECT e.* FROM entries e JOIN projects p ON p.id=e.project_id WHERE e.uid=? AND p.workspace=? ORDER BY e.day DESC,e.id DESC&quot;,</span>
+<span class="nc" id="L115">        arrayOf(session.uid, session.workspace)</span>
+<span class="nc" id="L116">    ).use { c -&gt;</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        buildList { while(c.moveToNext()) add(TimeEntry(</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">            if (c.isNull(c.getColumnIndexOrThrow(&quot;server_id&quot;))) c.getLong(0) else c.getLong(c.getColumnIndexOrThrow(&quot;server_id&quot;)),</span>
+<span class="nc" id="L119">            c.getString(1),c.getString(2),</span>
+<span class="nc" id="L120">            c.getString(3),LocalDate.parse(c.getString(4)),c.getLong(5),c.getString(6),c.getString(7),</span>
+<span class="nc" id="L121">            c.getString(c.getColumnIndexOrThrow(&quot;task_id&quot;)))) }</span>
+<span class="nc" id="L122">    }</span>
+
+    fun saveEntry(session: Session, entry: TimeEntry): Long {
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        require(entry.uid == session.uid) { &quot;Solo puedes registrar tus propias horas&quot; }</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        require(projects(session).any { it.id == entry.projectId }) { &quot;Proyecto no disponible&quot; }</span>
+<span class="nc bnc" id="L127" title="All 12 branches missed.">        require(entry.day &lt;= LocalDate.now() &amp;&amp; entry.seconds in 1..86400 &amp;&amp; validateTask(entry.task) == null) {</span>
+<span class="nc" id="L128">            &quot;Revisa la fecha, duración y tarea&quot;</span>
+        }
+<span class="nc" id="L130">        val db = writableDatabase</span>
+<span class="nc" id="L131">        db.beginTransaction()</span>
+<span class="nc" id="L132">        try {</span>
+<span class="nc" id="L133">            val already = db.rawQuery(&quot;SELECT COALESCE(SUM(seconds),0) FROM entries WHERE uid=? AND day=? AND id&lt;&gt;?&quot;,</span>
+<span class="nc" id="L134">                arrayOf(session.uid, entry.day.toString(), entry.id.toString())).use { it.moveToFirst(); it.getLong(0) }</span>
+<span class="nc bnc" id="L135" title="All 4 branches missed.">            require(already + entry.seconds &lt;= 86400) { &quot;Los registros de un día no pueden superar 24 horas&quot; }</span>
+<span class="nc" id="L136">            val task = resolveTask(db, entry.projectId, entry.taskId, entry.task)</span>
+<span class="nc" id="L137">            val values = ContentValues().apply {</span>
+<span class="nc" id="L138">                put(&quot;uid&quot;,session.uid); put(&quot;user_name&quot;,session.name); put(&quot;project_id&quot;,entry.projectId)</span>
+<span class="nc" id="L139">                put(&quot;day&quot;,entry.day.toString()); put(&quot;seconds&quot;,entry.seconds); put(&quot;task&quot;,task.name)</span>
+<span class="nc" id="L140">                put(&quot;source&quot;,entry.source); put(&quot;task_id&quot;,task.id)</span>
+<span class="nc" id="L141">            }</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">            val id = if(entry.id == 0L) db.insertOrThrow(&quot;entries&quot;,null,values) else {</span>
+<span class="nc bnc" id="L143" title="All 4 branches missed.">                require(db.update(&quot;entries&quot;,values,&quot;id=? AND uid=?&quot;,arrayOf(entry.id.toString(),session.uid)) == 1) { &quot;Registro no disponible&quot; }</span>
+<span class="nc" id="L144">                entry.id</span>
+            }
+<span class="nc" id="L146">            db.setTransactionSuccessful()</span>
+<span class="nc" id="L147">            return id</span>
+<span class="nc" id="L148">        } finally { db.endTransaction() }</span>
+    }
+
+    fun deleteEntry(session: Session, id: Long) {
+<span class="nc bnc" id="L152" title="All 4 branches missed.">        require(writableDatabase.delete(&quot;entries&quot;,&quot;id=? AND uid=?&quot;,arrayOf(id.toString(),session.uid)) == 1)</span>
+<span class="nc" id="L153">    }</span>
+
+    fun createProject(session: Session, name: String, client: String, estimate: Int) {
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        require(validateProject(name, client, estimate).valid) { &quot;Revisa los datos del proyecto&quot; }</span>
+<span class="nc" id="L157">        val db = writableDatabase</span>
+<span class="nc" id="L158">        db.beginTransaction()</span>
+<span class="nc" id="L159">        try {</span>
+<span class="nc" id="L160">            val id = UUID.randomUUID().toString()</span>
+<span class="nc" id="L161">            db.insertOrThrow(&quot;projects&quot;,null,ContentValues().apply {</span>
+<span class="nc" id="L162">                put(&quot;id&quot;,id); put(&quot;workspace&quot;,session.workspace); put(&quot;name&quot;,name.trim()); put(&quot;client&quot;,client.trim())</span>
+<span class="nc" id="L163">                put(&quot;estimate&quot;,estimate * 60); put(&quot;team_estimate&quot;,estimate * 60); put(&quot;color&quot;,0xFFA99BFF)</span>
+<span class="nc" id="L164">            })</span>
+<span class="nc" id="L165">            DefaultTaskNames.forEach { ensureTask(db, id, it) }</span>
+<span class="nc" id="L166">            db.setTransactionSuccessful()</span>
+<span class="nc" id="L167">        } finally { db.endTransaction() }</span>
+<span class="nc" id="L168">    }</span>
+
+<span class="nc" id="L170">    fun timer(session: Session): RunningTimer? = readableDatabase.rawQuery(</span>
+<span class="nc" id="L171">        &quot;SELECT t.* FROM timers t JOIN projects p ON p.id=t.project_id WHERE t.uid=? AND p.workspace=?&quot;,</span>
+<span class="nc" id="L172">        arrayOf(session.uid, session.workspace)</span>
+<span class="nc" id="L173">    ).use { c -&gt;</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        if(!c.moveToFirst()) null else RunningTimer(c.getString(1),c.getString(2),c.getLong(3),</span>
+<span class="nc" id="L175">            c.getLong(4),c.getLong(5),c.getInt(6),c.getString(c.getColumnIndexOrThrow(&quot;task_id&quot;)),</span>
+<span class="nc" id="L176">            c.getString(c.getColumnIndexOrThrow(&quot;client_id&quot;)))</span>
+<span class="nc" id="L177">    }</span>
+
+    fun saveTimer(session: Session, timer: RunningTimer?) {
+<span class="nc bnc" id="L180" title="All 2 branches missed.">        if(timer == null) { writableDatabase.delete(&quot;timers&quot;,&quot;uid=?&quot;,arrayOf(session.uid)); return }</span>
+<span class="nc bnc" id="L181" title="All 2 branches missed.">        require(projects(session).any { it.id == timer.projectId }) { &quot;Proyecto no disponible&quot; }</span>
+<span class="nc" id="L182">        val db = writableDatabase</span>
+<span class="nc" id="L183">        db.beginTransaction()</span>
+<span class="nc" id="L184">        try {</span>
+<span class="nc" id="L185">            val task = resolveTask(db, timer.projectId, timer.taskId, timer.task)</span>
+<span class="nc" id="L186">            db.insertWithOnConflict(&quot;timers&quot;,null,ContentValues().apply {</span>
+<span class="nc" id="L187">                put(&quot;uid&quot;,session.uid); put(&quot;project_id&quot;,timer.projectId); put(&quot;task&quot;,task.name); put(&quot;task_id&quot;,task.id)</span>
+<span class="nc" id="L188">                put(&quot;client_id&quot;,timer.clientId)</span>
+<span class="nc" id="L189">                put(&quot;accumulated&quot;,timer.accumulatedMs); put(&quot;wall&quot;,timer.startedWall)</span>
+<span class="nc" id="L190">                put(&quot;elapsed&quot;,timer.startedElapsed); put(&quot;boot&quot;,timer.boot)</span>
+<span class="nc" id="L191">            },SQLiteDatabase.CONFLICT_REPLACE)</span>
+<span class="nc" id="L192">            db.setTransactionSuccessful()</span>
+<span class="nc" id="L193">        } finally { db.endTransaction() }</span>
+<span class="nc" id="L194">    }</span>
+
+<span class="nc" id="L196">    fun toggleTimer(session:Session,wall:Long,elapsed:Long,boot:Int,pauseOnly:Boolean=false):RunningTimer? {</span>
+<span class="nc" id="L197">        val db=writableDatabase</span>
+<span class="nc" id="L198">        db.beginTransaction()</span>
+<span class="nc" id="L199">        try {</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">            val current=timer(session) ?: return null</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">            val next=if(current.running) current.copy(accumulatedMs=current.elapsed(wall,elapsed,boot),startedWall=0,startedElapsed=0)</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">                else if(pauseOnly) current else current.copy(startedWall=wall,startedElapsed=elapsed,boot=boot)</span>
+<span class="nc" id="L203">            saveTimer(session,next)</span>
+<span class="nc" id="L204">            db.setTransactionSuccessful()</span>
+<span class="nc" id="L205">            return next</span>
+<span class="nc" id="L206">        } finally {db.endTransaction()}</span>
+    }
+
+    fun completeTimer(session:Session,wall:Long,elapsed:Long,boot:Int):TimeEntry {
+<span class="nc" id="L210">        val db=writableDatabase</span>
+<span class="nc" id="L211">        db.beginTransaction()</span>
+<span class="nc" id="L212">        try {</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">            val current=timer(session) ?: error(&quot;No hay un cronómetro activo&quot;)</span>
+<span class="nc" id="L214">            val seconds=roundedTimerSeconds(current.elapsed(wall,elapsed,boot))</span>
+<span class="nc" id="L215">            val result=finishTimer(session,seconds)</span>
+<span class="nc" id="L216">            db.setTransactionSuccessful()</span>
+<span class="nc" id="L217">            return result</span>
+<span class="nc" id="L218">        } finally {db.endTransaction()}</span>
+    }
+
+    fun clearCompletedTimer(session: Session, clientId: String) {
+<span class="nc" id="L222">        writableDatabase.delete(&quot;timers&quot;,&quot;uid=? AND client_id=?&quot;,arrayOf(session.uid,clientId))</span>
+<span class="nc" id="L223">    }</span>
+
+    /** Caché para el widget. Los IDs remotos no reemplazan los IDs de registros locales/demo. */
+    internal fun cacheServerData(session: Session, snapshot: HoursSnapshot) {
+<span class="nc" id="L227">        val projectIds = snapshot.projects.map { it.id }.toSet()</span>
+<span class="nc" id="L228">        val taskIds = snapshot.tasks.map { it.id }.toSet()</span>
+<span class="nc bnc" id="L229" title="All 8 branches missed.">        require(snapshot.entries.all { it.uid == session.uid &amp;&amp; it.projectId in projectIds &amp;&amp; it.taskId in taskIds }) {</span>
+<span class="nc" id="L230">            &quot;El servidor devolvió relaciones de datos incompletas&quot;</span>
+        }
+<span class="nc" id="L232">        val db = writableDatabase</span>
+<span class="nc" id="L233">        db.beginTransaction()</span>
+<span class="nc" id="L234">        try {</span>
+<span class="nc" id="L235">            snapshot.projects.forEach { p -&gt;</span>
+<span class="nc" id="L236">                val values = ContentValues().apply {</span>
+<span class="nc" id="L237">                    put(&quot;id&quot;,p.id);put(&quot;workspace&quot;,session.workspace);put(&quot;name&quot;,p.name);put(&quot;client&quot;,p.client)</span>
+<span class="nc" id="L238">                    put(&quot;estimate&quot;,p.estimateMinutes);put(&quot;team_estimate&quot;,p.teamEstimateMinutes);put(&quot;color&quot;,p.color)</span>
+<span class="nc" id="L239">                }</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">                if(db.update(&quot;projects&quot;,values,&quot;id=? AND workspace=?&quot;,arrayOf(p.id,session.workspace))==0)</span>
+<span class="nc" id="L241">                    db.insertOrThrow(&quot;projects&quot;,null,values)</span>
+<span class="nc" id="L242">            }</span>
+<span class="nc" id="L243">            snapshot.tasks.forEach { task -&gt;</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">                require(task.projectId in projectIds)</span>
+<span class="nc" id="L245">                val values=ContentValues().apply {put(&quot;id&quot;,task.id);put(&quot;project_id&quot;,task.projectId);put(&quot;name&quot;,task.name)}</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">                if(db.update(&quot;tasks&quot;,values,&quot;id=? AND project_id=?&quot;,arrayOf(task.id,task.projectId))==0)</span>
+<span class="nc" id="L247">                    db.insertOrThrow(&quot;tasks&quot;,null,values)</span>
+<span class="nc" id="L248">            }</span>
+<span class="nc" id="L249">            db.delete(&quot;entries&quot;,&quot;uid=?&quot;,arrayOf(session.uid))</span>
+<span class="nc" id="L250">            snapshot.entries.forEach { e -&gt;</span>
+<span class="nc" id="L251">                db.insertOrThrow(&quot;entries&quot;,null,ContentValues().apply {</span>
+<span class="nc" id="L252">                    put(&quot;uid&quot;,e.uid);put(&quot;user_name&quot;,e.userName);put(&quot;project_id&quot;,e.projectId)</span>
+<span class="nc" id="L253">                    put(&quot;day&quot;,e.day.toString());put(&quot;seconds&quot;,e.seconds);put(&quot;task&quot;,e.task)</span>
+<span class="nc" id="L254">                    put(&quot;source&quot;,e.source);put(&quot;task_id&quot;,e.taskId);put(&quot;server_id&quot;,e.id)</span>
+<span class="nc" id="L255">                })</span>
+<span class="nc" id="L256">            }</span>
+<span class="nc bnc" id="L257" title="All 2 branches missed.">            tasks(session).filter { it.id !in taskIds }.forEach {</span>
+<span class="nc" id="L258">                db.delete(&quot;tasks&quot;,&quot;id=? AND NOT EXISTS(SELECT 1 FROM timers WHERE task_id=?)&quot;,arrayOf(it.id,it.id))</span>
+<span class="nc" id="L259">            }</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">            projects(session).filter { it.id !in projectIds }.forEach {</span>
+<span class="nc" id="L261">                db.delete(&quot;projects&quot;,&quot;id=? AND NOT EXISTS(SELECT 1 FROM timers WHERE project_id=?)&quot;,arrayOf(it.id,it.id))</span>
+<span class="nc" id="L262">            }</span>
+<span class="nc" id="L263">            db.setTransactionSuccessful()</span>
+<span class="nc" id="L264">        } finally { db.endTransaction() }</span>
+<span class="nc" id="L265">    }</span>
+
+    /** Terminar y borrar el cronómetro forman una sola transacción. */
+    fun finishTimer(session: Session, seconds: Long): TimeEntry {
+<span class="nc bnc" id="L269" title="All 6 branches missed.">        require(seconds in 1..86400) { &quot;El tiempo debe estar entre 1 segundo y 24 horas&quot; }</span>
+<span class="nc" id="L270">        val db = writableDatabase</span>
+<span class="nc" id="L271">        db.beginTransaction()</span>
+<span class="nc" id="L272">        try {</span>
+<span class="nc bnc" id="L273" title="All 2 branches missed.">            val timer = timer(session) ?: error(&quot;No hay un cronómetro activo&quot;)</span>
+<span class="nc" id="L274">            val entry = TimeEntry(uid=session.uid,userName=session.name,projectId=timer.projectId,</span>
+<span class="nc" id="L275">                day=LocalDate.now(),seconds=roundedTimerSeconds(seconds * 1000),task=timer.task,</span>
+<span class="nc" id="L276">                source=&quot;Cronómetro&quot;,taskId=timer.taskId)</span>
+<span class="nc" id="L277">            val saved = entry.copy(id=saveEntry(session,entry))</span>
+<span class="nc" id="L278">            saveTimer(session,null)</span>
+<span class="nc" id="L279">            db.setTransactionSuccessful()</span>
+<span class="nc" id="L280">            return saved</span>
+<span class="nc" id="L281">        } finally { db.endTransaction() }</span>
+    }
+
+    fun seedDemo() {
+<span class="nc" id="L285">        val db = writableDatabase</span>
+<span class="nc" id="L286">        db.beginTransaction()</span>
+<span class="nc" id="L287">        try {</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">            db.rawQuery(&quot;SELECT name FROM flags WHERE name='demo_seeded'&quot;,null).use { if(it.moveToFirst()) return }</span>
+<span class="nc" id="L289">            val names = listOf(&quot;Portal Cliente AFC&quot;,&quot;Rediseño Web&quot;,&quot;Dashboard Admin&quot;,&quot;API Integración&quot;)</span>
+<span class="nc" id="L290">            val clients = listOf(&quot;AFC&quot;,&quot;NOVA&quot;,&quot;AFC&quot;,&quot;NOVA&quot;)</span>
+<span class="nc" id="L291">            val estimates = listOf(32,32,16,8)</span>
+<span class="nc" id="L292">            val teamEstimates = listOf(40,36,24,12)</span>
+<span class="nc" id="L293">            val colors = listOf(0xFFB6A0FF,0xFFF5BA78,0xFF81B8FF,0xFFE79CD4)</span>
+<span class="nc" id="L294">            val dev = listOf(24,38,12,7)</span>
+<span class="nc" id="L295">            val leader = listOf(8,4,4,3)</span>
+<span class="nc" id="L296">            val today=LocalDate.now()</span>
+<span class="nc bnc" id="L297" title="All 2 branches missed.">            val base = (if(today.dayOfMonth&gt;=16) today else today.minusMonths(1)).withDayOfMonth(1)</span>
+<span class="nc" id="L298">            names.forEachIndexed { i,name -&gt;</span>
+<span class="nc" id="L299">                val id = &quot;demo_$i&quot;</span>
+<span class="nc" id="L300">                db.execSQL(&quot;INSERT INTO projects VALUES(?,?,?,?,?,?,?)&quot;,arrayOf&lt;Any&gt;(id,&quot;demo&quot;,name,clients[i],estimates[i]*60,teamEstimates[i]*60,colors[i]))</span>
+<span class="nc" id="L301">                DefaultTaskNames.forEach { ensureTask(db, id, it) }</span>
+<span class="nc" id="L302">                val task = ensureTask(db, id, listOf(&quot;Desarrollo del portal de clientes&quot;,&quot;Diseño y componentes de la interfaz&quot;,</span>
+<span class="nc" id="L303">                    &quot;Métricas y visualización de datos&quot;,&quot;Pruebas de integración&quot;)[i])</span>
+<span class="nc" id="L304">                listOf(&quot;demo_luis&quot; to dev[i],&quot;demo_ana&quot; to leader[i]).forEach { (uid,hours) -&gt;</span>
+<span class="nc" id="L305">                    var remaining = hours</span>
+<span class="nc" id="L306">                    var n = i * 5</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">                    while(remaining &gt; 0) {</span>
+<span class="nc" id="L308">                        val chunk = minOf(remaining,8)</span>
+<span class="nc" id="L309">                        val day = base.plusDays(n.toLong()).coerceAtMost(LocalDate.now())</span>
+<span class="nc" id="L310">                        db.execSQL(&quot;INSERT INTO entries(uid,user_name,project_id,day,seconds,task,source,task_id) VALUES(?,?,?,?,?,?,?,?)&quot;,</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">                            arrayOf&lt;Any&gt;(uid,if(uid==&quot;demo_luis&quot;) &quot;Luis Gómez&quot; else &quot;Ana Pérez&quot;,id,day.toString(),chunk*3600,</span>
+<span class="nc" id="L312">                                task.name,&quot;Ejemplo&quot;,task.id))</span>
+<span class="nc" id="L313">                        remaining -= chunk; n++</span>
+                    }
+<span class="nc" id="L315">                }</span>
+<span class="nc" id="L316">            }</span>
+<span class="nc" id="L317">            db.execSQL(&quot;INSERT INTO flags VALUES('demo_seeded')&quot;)</span>
+<span class="nc" id="L318">            db.setTransactionSuccessful()</span>
+<span class="nc" id="L319">        } finally { db.endTransaction() }</span>
+<span class="nc" id="L320">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

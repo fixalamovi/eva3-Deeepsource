@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SessionVault.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.data</a> &gt; <span class="el_source">SessionVault.kt</span></div><h1>SessionVault.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.data
+
+import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
+import com.example.deepsource.domain.Session
+import org.json.JSONObject
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
+
+/** Tokens are encrypted with an Android Keystore key; passwords are never persisted. */
+<span class="nc" id="L16">class SessionVault(context: Context) {</span>
+<span class="nc" id="L17">    private val prefs = context.getSharedPreferences(&quot;session_vault&quot;,Context.MODE_PRIVATE)</span>
+    private fun key(): SecretKey {
+<span class="nc" id="L19">        val store = KeyStore.getInstance(&quot;AndroidKeyStore&quot;).apply { load(null) }</span>
+<span class="nc bnc" id="L20" title="All 4 branches missed.">        return (store.getKey(&quot;deepsource_session&quot;,null) as? SecretKey) ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,&quot;AndroidKeyStore&quot;).run {</span>
+<span class="nc" id="L21">            init(KeyGenParameterSpec.Builder(&quot;deepsource_session&quot;,KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)</span>
+<span class="nc" id="L22">                .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())</span>
+<span class="nc" id="L23">            generateKey()</span>
+        }
+    }
+    fun save(s: Session?) {
+<span class="nc bnc" id="L27" title="All 4 branches missed.">        if(s==null) { check(prefs.edit().clear().commit()); return }</span>
+<span class="nc" id="L28">        val json = JSONObject().put(&quot;uid&quot;,s.uid).put(&quot;name&quot;,s.name).put(&quot;email&quot;,s.email).put(&quot;role&quot;,s.role)</span>
+<span class="nc" id="L29">            .put(&quot;demo&quot;,s.demo).put(&quot;provider&quot;,s.provider).put(&quot;token&quot;,s.token).put(&quot;refresh&quot;,s.refreshToken).put(&quot;expires&quot;,s.expiresAt)</span>
+<span class="nc" id="L30">        val cipher = Cipher.getInstance(&quot;AES/GCM/NoPadding&quot;).apply { init(Cipher.ENCRYPT_MODE,key()) }</span>
+<span class="nc" id="L31">        val encrypted = cipher.doFinal(json.toString().toByteArray(Charsets.UTF_8))</span>
+<span class="nc bnc" id="L32" title="All 2 branches missed.">        check(prefs.edit().putString(&quot;data&quot;,Base64.encodeToString(encrypted,Base64.NO_WRAP))</span>
+<span class="nc" id="L33">            .putString(&quot;iv&quot;,Base64.encodeToString(cipher.iv,Base64.NO_WRAP)).commit()) { &quot;No pudimos guardar la sesión&quot; }</span>
+<span class="nc" id="L34">    }</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">    fun read(): Session? = try {</span>
+<span class="nc" id="L36">        val data = prefs.getString(&quot;data&quot;,null)</span>
+<span class="nc" id="L37">        if(data==null) null else {</span>
+<span class="nc" id="L38">            val iv = Base64.decode(prefs.getString(&quot;iv&quot;,null),Base64.NO_WRAP)</span>
+<span class="nc" id="L39">            val cipher = Cipher.getInstance(&quot;AES/GCM/NoPadding&quot;).apply { init(Cipher.DECRYPT_MODE,key(),GCMParameterSpec(128,iv)) }</span>
+<span class="nc" id="L40">            val j = JSONObject(String(cipher.doFinal(Base64.decode(data,Base64.NO_WRAP)),Charsets.UTF_8))</span>
+<span class="nc" id="L41">            Session(j.getString(&quot;uid&quot;),j.getString(&quot;name&quot;),j.getString(&quot;email&quot;),j.getString(&quot;role&quot;),</span>
+<span class="nc" id="L42">                j.getBoolean(&quot;demo&quot;),j.getString(&quot;provider&quot;),j.getString(&quot;token&quot;),j.getString(&quot;refresh&quot;),j.getLong(&quot;expires&quot;))</span>
+        }
+<span class="nc" id="L44">    } catch(_: Exception) { prefs.edit().clear().commit(); null }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

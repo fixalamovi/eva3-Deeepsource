@@ -1,0 +1,26 @@
+Alias name: deepsource-eva4
+Creation date: 26 nov 2026
+Entry type: PrivateKeyEntry
+Certificate chain length: 1
+Certificate[1]:
+Owner: CN=Deepsource EVA4, OU=DSY1105, O=Proyecto Academico, C=CL
+Issuer: CN=Deepsource EVA4, OU=DSY1105, O=Proyecto Academico, C=CL
+Serial number: 46bafdcf35a59130
+Valid from: Thu Nov 26 03:44:01 CLST 2026 until: Mon Apr 13 02:44:01 CLT 2054
+Certificate fingerprints:
+	 SHA1: C7:1E:87:04:80:23:85:BA:0B:A7:54:A2:A3:DA:E4:B4:C1:E0:6A:76
+	 SHA256: 3A:3E:CE:87:59:36:0A:FC:22:72:7A:11:71:C5:36:B6:84:55:07:55:74:FC:E7:8D:C9:BD:91:22:F1:8C:AB:CC
+Signature algorithm name: SHA256withRSA
+Subject Public Key Algorithm: 3072-bit RSA key
+Version: 3
+
+Extensions: 
+
+#1: ObjectId: 2.5.29.14 Criticality=false
+SubjectKeyIdentifier [
+KeyIdentifier [
+0000: F3 57 A1 34 B4 15 2E 6F   99 9D EA 70 F5 7D AD 9B  .W.4...o...p....
+0010: AD D8 79 CE                                        ..y.
+]
+]
+

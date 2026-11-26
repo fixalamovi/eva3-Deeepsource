@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuthRepository.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.data</a> &gt; <span class="el_source">AuthRepository.kt</span></div><h1>AuthRepository.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.data
+
+import android.content.Context
+import com.example.deepsource.BuildConfig
+import com.example.deepsource.data.remote.*
+import com.example.deepsource.domain.Session
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+<span class="nc" id="L11">class AuthRepository(private val context: Context) {</span>
+    fun canRestore(session: Session): Boolean {
+<span class="nc bnc" id="L13" title="All 2 branches missed.">        if (session.demo) return true</span>
+<span class="nc bnc" id="L14" title="All 2 branches missed.">        if (!session.provider.startsWith(&quot;Correo&quot;)) return false</span>
+<span class="nc" id="L15">        return if (BuildConfig.USE_SERVER)</span>
+<span class="nc bnc" id="L16" title="All 4 branches missed.">            session.token.startsWith(&quot;ds_&quot;) &amp;&amp; session.expiresAt &gt; System.currentTimeMillis()</span>
+        else !session.token.startsWith(&quot;ds_&quot;)
+    }
+<span class="nc" id="L19">    suspend fun signIn(email: String, password: String): Session = withContext(Dispatchers.IO) {</span>
+<span class="nc" id="L20">        if (BuildConfig.USE_SERVER) backendCall { BackendClient.projects.login(LoginBody(email, password)) }</span>
+<span class="nc" id="L21">        else LocalAccounts(context).use { it.signIn(email, password) }</span>
+<span class="nc" id="L22">    }</span>
+<span class="nc" id="L23">    suspend fun register(name: String, email: String, password: String): Session = withContext(Dispatchers.IO) {</span>
+<span class="nc" id="L24">        if (BuildConfig.USE_SERVER) {</span>
+<span class="nc" id="L25">            try { backendCall { BackendClient.projects.register(RegisterBody(name, email, password)) } }</span>
+<span class="nc" id="L26">            catch (e: BackendException) {</span>
+<span class="nc bnc" id="L27" title="All 2 branches missed.">                if (e.status == 409) throw LocalEmailInUseException(&quot;Ya existe una cuenta con ese correo&quot;)</span>
+<span class="nc" id="L28">                throw e</span>
+            }
+        }
+<span class="nc" id="L31">        else LocalAccounts(context).use { it.register(name, email, password) }</span>
+<span class="nc" id="L32">    }</span>
+<span class="nc" id="L33">    suspend fun updateProfile(session: Session, name: String): Session = withContext(Dispatchers.IO) {</span>
+<span class="nc bnc" id="L34" title="All 2 branches missed.">        if (session.demo) return@withContext session.copy(name = name.trim())</span>
+<span class="nc" id="L35">        if (BuildConfig.USE_SERVER) {</span>
+<span class="nc" id="L36">            backendCall { BackendClient.projects.profile(BackendClient.auth(session), NameBody(name)) }</span>
+<span class="nc" id="L37">                .copy(token = session.token, refreshToken = session.refreshToken)</span>
+        } else {
+            LocalAccounts(context).use { it.updateName(session, name) }
+            session.copy(name = name.trim())
+<span class="nc" id="L41">        }</span>
+<span class="nc" id="L42">    }</span>
+<span class="nc" id="L43">    suspend fun changePassword(session: Session, current: String, next: String) = withContext(Dispatchers.IO) {</span>
+<span class="nc bnc" id="L44" title="All 4 branches missed.">        require(!session.demo) { &quot;Esta función está disponible para cuentas con contraseña&quot; }</span>
+<span class="nc" id="L45">        if (BuildConfig.USE_SERVER) {</span>
+<span class="nc" id="L46">            try { backendUnit { BackendClient.projects.password(BackendClient.auth(session), PasswordBody(current, next)) } }</span>
+<span class="nc" id="L47">            catch (e: BackendException) {</span>
+<span class="nc bnc" id="L48" title="All 4 branches missed.">                if (e.status == 400) throw LocalAuthenticationException(e.message.orEmpty())</span>
+<span class="nc" id="L49">                throw e</span>
+            }
+        } else LocalAccounts(context).use { it.changePassword(session, current, next) }
+<span class="nc" id="L52">    }</span>
+    suspend fun signOut(session: Session) {
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        if (BuildConfig.USE_SERVER &amp;&amp; !session.demo) {</span>
+<span class="nc" id="L55">            try { backendUnit { BackendClient.projects.logout(BackendClient.auth(session)) } }</span>
+<span class="nc" id="L56">            catch (e: CancellationException) { throw e }</span>
+<span class="nc" id="L57">            catch (_: Exception) { /* La copia local de la sesión se elimina incluso sin conexión. */ }</span>
+        }
+<span class="nc" id="L59">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

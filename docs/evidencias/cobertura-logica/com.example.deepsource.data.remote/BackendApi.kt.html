@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BackendApi.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.data.remote</a> &gt; <span class="el_source">BackendApi.kt</span></div><h1>BackendApi.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.data.remote
+
+import com.example.deepsource.domain.*
+import retrofit2.Response
+import retrofit2.http.*
+import java.time.LocalDate
+
+<span class="nc" id="L8">internal data class LoginBody(val email: String, val password: String)</span>
+<span class="nc" id="L9">internal data class RegisterBody(val name: String, val email: String, val password: String)</span>
+<span class="nc" id="L10">internal data class NameBody(val name: String)</span>
+<span class="nc" id="L11">internal data class PasswordBody(val current: String, val next: String)</span>
+<span class="pc" id="L12">internal data class ProjectBody(val name: String, val client: String, val estimateMinutes: Int)</span>
+<span class="pc" id="L13">internal data class TaskBody(val name: String)</span>
+<span class="pc" id="L14">internal data class EntryBody(val projectId: String, val taskId: String, val day: String, val seconds: Long, val source: String)</span>
+<span class="fc" id="L15">internal data class RemoteEntry(</span>
+<span class="pc" id="L16">    val id: Long, val uid: String, val userName: String, val projectId: String,</span>
+<span class="pc" id="L17">    val day: String, val seconds: Long, val task: String, val source: String, val taskId: String</span>
+) {
+<span class="fc" id="L19">    fun domain() = TimeEntry(id, uid, userName, projectId, LocalDate.parse(day), seconds, task, source, taskId)</span>
+}
+internal interface ProjectsApi {
+    @POST(&quot;api/auth/login&quot;) suspend fun login(@Body body: LoginBody): Response&lt;Session&gt;
+    @POST(&quot;api/auth/register&quot;) suspend fun register(@Body body: RegisterBody): Response&lt;Session&gt;
+    @POST(&quot;api/auth/logout&quot;) suspend fun logout(@Header(&quot;Authorization&quot;) auth: String): Response&lt;Unit&gt;
+    @PUT(&quot;api/auth/profile&quot;) suspend fun profile(@Header(&quot;Authorization&quot;) auth: String, @Body body: NameBody): Response&lt;Session&gt;
+    @PUT(&quot;api/auth/password&quot;) suspend fun password(@Header(&quot;Authorization&quot;) auth: String, @Body body: PasswordBody): Response&lt;Unit&gt;
+    @GET(&quot;api/proyectos&quot;) suspend fun projects(@Header(&quot;Authorization&quot;) auth: String): Response&lt;List&lt;Project&gt;&gt;
+    @GET(&quot;api/tareas&quot;) suspend fun tasks(@Header(&quot;Authorization&quot;) auth: String): Response&lt;List&lt;ProjectTask&gt;&gt;
+    @POST(&quot;api/proyectos&quot;) suspend fun createProject(@Header(&quot;Authorization&quot;) auth: String, @Body body: ProjectBody): Response&lt;Project&gt;
+    @POST(&quot;api/proyectos/{id}/tareas&quot;) suspend fun createTask(@Header(&quot;Authorization&quot;) auth: String, @Path(&quot;id&quot;) id: String, @Body body: TaskBody): Response&lt;ProjectTask&gt;
+}
+internal interface RecordsApi {
+    @GET(&quot;api/registros&quot;) suspend fun entries(@Header(&quot;Authorization&quot;) auth: String): Response&lt;List&lt;RemoteEntry&gt;&gt;
+    @POST(&quot;api/registros&quot;) suspend fun create(@Header(&quot;Authorization&quot;) auth: String, @Header(&quot;Idempotency-Key&quot;) key: String, @Body body: EntryBody): Response&lt;RemoteEntry&gt;
+    @PUT(&quot;api/registros/{id}&quot;) suspend fun update(@Header(&quot;Authorization&quot;) auth: String, @Path(&quot;id&quot;) id: Long, @Body body: EntryBody): Response&lt;RemoteEntry&gt;
+    @DELETE(&quot;api/registros/{id}&quot;) suspend fun delete(@Header(&quot;Authorization&quot;) auth: String, @Path(&quot;id&quot;) id: Long): Response&lt;Unit&gt;
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

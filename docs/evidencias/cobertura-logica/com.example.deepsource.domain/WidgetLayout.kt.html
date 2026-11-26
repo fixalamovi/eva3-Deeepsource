@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WidgetLayout.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.domain</a> &gt; <span class="el_source">WidgetLayout.kt</span></div><h1>WidgetLayout.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.domain
+
+<span class="pc" id="L3">data class WidgetLayout(val rows:Int,val showTotal:Boolean,val showMonth:Boolean,val showFooter:Boolean)</span>
+
+/** Reserve space for every action before adding optional project rows. */
+<span class="fc" id="L6">fun widgetLayout(heightDp:Int,activeTimer:Boolean,fontScale:Float=1f):WidgetLayout {</span>
+<span class="fc" id="L7">    val height=(heightDp/fontScale.coerceAtLeast(1f)).toInt()</span>
+<span class="fc bfc" id="L8" title="All 4 branches covered.">    val total=!activeTimer || height&gt;=280</span>
+<span class="fc bfc" id="L9" title="All 4 branches covered.">    val month=height&gt;=240 || !activeTimer</span>
+<span class="fc bfc" id="L10" title="All 2 branches covered.">    val footer=height&gt;=260</span>
+<span class="fc bfc" id="L11" title="All 8 branches covered.">    val used=146+(if(total) 38 else 0)+(if(month) 18 else 0)+(if(footer) 20 else 0)+(if(activeTimer) 52 else 0)</span>
+<span class="fc" id="L12">    return WidgetLayout(((height-used)/28).coerceIn(0,4),total,month,footer)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

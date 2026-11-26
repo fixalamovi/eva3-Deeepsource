@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CsvExport.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.domain</a> &gt; <span class="el_source">CsvExport.kt</span></div><h1>CsvExport.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.domain
+
+fun csvCell(value:String):String {
+<span class="fc bfc" id="L4" title="All 2 branches covered.">    val safe=if(value.trimStart().firstOrNull() in listOf('=','+','-','@','\t','\r')) &quot;'$value&quot; else value</span>
+<span class="fc" id="L5">    return &quot;\&quot;&quot;+safe.replace(&quot;\&quot;&quot;,&quot;\&quot;\&quot;&quot;)+&quot;\&quot;&quot;</span>
+}
+
+<span class="fc" id="L8">fun exportHoursCsv(entries:List&lt;TimeEntry&gt;,projects:List&lt;Project&gt;,email:String):String=buildString {</span>
+<span class="fc" id="L9">    append('\uFEFF')</span>
+<span class="fc" id="L10">    append(&quot;Fecha;Proyecto;Tarea;Duración;Segundos;Usuario;Correo;Origen\r\n&quot;)</span>
+<span class="fc" id="L11">    entries.forEach {e -&gt;</span>
+<span class="fc bfc" id="L12" title="All 4 branches covered.">        append(listOf(e.day.toString(),projects.firstOrNull {it.id==e.projectId}?.name.orEmpty(),e.task,</span>
+<span class="fc" id="L13">            durationText(e.seconds),e.seconds.toString(),e.userName,email,e.source).joinToString(&quot;;&quot;,transform=::csvCell))</span>
+<span class="fc" id="L14">        append(&quot;\r\n&quot;)</span>
+<span class="fc" id="L15">    }</span>
+<span class="fc" id="L16">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

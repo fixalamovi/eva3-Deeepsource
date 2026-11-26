@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocalAccounts.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.data</a> &gt; <span class="el_source">LocalAccounts.kt</span></div><h1>LocalAccounts.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.data
+
+import android.content.ContentValues
+import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
+import com.example.deepsource.domain.*
+import java.util.Locale
+import java.util.UUID
+
+<span class="nc" id="L11">internal class LocalAuthenticationException(message: String) : IllegalStateException(message)</span>
+<span class="pc" id="L12">internal class LocalEmailInUseException(message: String = &quot;Ya existe una cuenta local con ese correo&quot;) : IllegalStateException(message)</span>
+
+/** Device accounts for the working local prototype. Never accepts an arbitrary email. */
+<span class="nc" id="L15">class LocalAccounts(context:Context):SQLiteOpenHelper(context,&quot;local_accounts.db&quot;,null,1) {</span>
+    override fun onCreate(db:SQLiteDatabase) {
+<span class="nc" id="L17">        db.execSQL(&quot;CREATE TABLE accounts(uid TEXT PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT NOT NULL,role TEXT NOT NULL,salt BLOB NOT NULL,hash BLOB NOT NULL,iterations INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,locked_until INTEGER NOT NULL DEFAULT 0)&quot;)</span>
+<span class="nc" id="L18">    }</span>
+<span class="nc" id="L19">    override fun onUpgrade(db:SQLiteDatabase,oldVersion:Int,newVersion:Int)=Unit</span>
+    fun register(name:String,email:String,password:String):Session {
+<span class="nc" id="L21">        val nameError = validateName(name)</span>
+<span class="nc bnc" id="L22" title="All 6 branches missed.">        require(nameError == null) { nameError.orEmpty() }</span>
+<span class="nc" id="L23">        val normalized=normalize(email)</span>
+<span class="nc" id="L24">        val emailError = validateEmail(normalized)</span>
+<span class="nc bnc" id="L25" title="All 6 branches missed.">        require(emailError == null) { emailError.orEmpty() }</span>
+<span class="nc" id="L26">        val digest=Passwords.create(password)</span>
+<span class="nc" id="L27">        val uid=&quot;local_&quot;+UUID.randomUUID()</span>
+<span class="nc" id="L28">        try {</span>
+<span class="nc" id="L29">            writableDatabase.insertOrThrow(&quot;accounts&quot;,null,ContentValues().apply {</span>
+<span class="nc" id="L30">                put(&quot;uid&quot;,uid);put(&quot;email&quot;,normalized);put(&quot;name&quot;,name.trim());put(&quot;role&quot;,&quot;DEV&quot;)</span>
+<span class="nc" id="L31">                put(&quot;salt&quot;,digest.salt);put(&quot;hash&quot;,digest.hash);put(&quot;iterations&quot;,digest.iterations)</span>
+<span class="nc" id="L32">            })</span>
+<span class="nc" id="L33">        } catch (_: android.database.sqlite.SQLiteConstraintException) {</span>
+<span class="nc" id="L34">            throw LocalEmailInUseException()</span>
+        }
+<span class="nc" id="L36">        return Session(uid,name.trim(),normalized,provider=&quot;Correo local&quot;)</span>
+    }
+    fun signIn(email:String,password:String):Session {
+<span class="nc" id="L39">        val invalidCredentials = &quot;El correo o la contraseña no son correctos&quot;</span>
+<span class="nc bnc" id="L40" title="All 2 branches missed.">        if (password.length &gt; 128) throw LocalAuthenticationException(invalidCredentials)</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">        val row=readableDatabase.query(&quot;accounts&quot;,null,&quot;email=?&quot;,arrayOf(normalize(email)),null,null,null).use {c -&gt;</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">            if(!c.moveToFirst()) null else Account(c.getString(0),c.getString(1),c.getString(2),c.getString(3),</span>
+<span class="nc" id="L43">                PasswordDigest(c.getBlob(4),c.getBlob(5),c.getInt(6)),c.getInt(7),c.getLong(8))</span>
+<span class="nc" id="L44">        } ?: run { // Run a derivation for unknown accounts, too.</span>
+<span class="nc" id="L45">            Passwords.verify(password,PasswordDigest(ByteArray(16),ByteArray(32),Passwords.ITERATIONS))</span>
+<span class="nc" id="L46">            throw LocalAuthenticationException(invalidCredentials)</span>
+        }
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        if (row.lockedUntil &gt; System.currentTimeMillis()) {</span>
+<span class="nc" id="L49">            throw LocalAuthenticationException(&quot;Demasiados intentos. Espera un minuto antes de volver a ingresar&quot;)</span>
+        }
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        if(!Passwords.verify(password,row.digest)) {</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">            val attempts=if(row.lockedUntil&gt;0) 1 else row.attempts+1</span>
+<span class="nc" id="L53">            writableDatabase.update(&quot;accounts&quot;,ContentValues().apply {</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">                put(&quot;attempts&quot;,attempts);put(&quot;locked_until&quot;,if(attempts&gt;=5) System.currentTimeMillis()+60000 else 0)</span>
+<span class="nc" id="L55">            },&quot;uid=?&quot;,arrayOf(row.uid))</span>
+<span class="nc" id="L56">            throw LocalAuthenticationException(invalidCredentials)</span>
+        }
+<span class="nc" id="L58">        writableDatabase.update(&quot;accounts&quot;,ContentValues().apply {put(&quot;attempts&quot;,0);put(&quot;locked_until&quot;,0)},&quot;uid=?&quot;,arrayOf(row.uid))</span>
+<span class="nc" id="L59">        return Session(row.uid,row.name,row.email,row.role,provider=&quot;Correo local&quot;)</span>
+    }
+    fun updateName(session:Session,name:String) {
+<span class="nc bnc" id="L62" title="All 4 branches missed.">        require(writableDatabase.update(&quot;accounts&quot;,ContentValues().apply {put(&quot;name&quot;,name.trim())},&quot;uid=?&quot;,arrayOf(session.uid))==1)</span>
+<span class="nc" id="L63">    }</span>
+    fun changePassword(session:Session,current:String,next:String) {
+<span class="nc" id="L65">        val verified=signIn(session.email,current)</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        require(verified.uid==session.uid)</span>
+<span class="nc" id="L67">        val digest=Passwords.create(next)</span>
+<span class="nc" id="L68">        writableDatabase.update(&quot;accounts&quot;,ContentValues().apply {put(&quot;salt&quot;,digest.salt);put(&quot;hash&quot;,digest.hash);put(&quot;iterations&quot;,digest.iterations)},&quot;uid=?&quot;,arrayOf(session.uid))</span>
+<span class="nc" id="L69">    }</span>
+<span class="nc" id="L70">    private fun normalize(email:String)=email.trim().lowercase(Locale.ROOT)</span>
+<span class="nc" id="L71">    private data class Account(val uid:String,val email:String,val name:String,val role:String,val digest:PasswordDigest,val attempts:Int,val lockedUntil:Long)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

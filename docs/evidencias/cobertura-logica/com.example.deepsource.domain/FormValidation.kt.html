@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FormValidation.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.domain</a> &gt; <span class="el_source">FormValidation.kt</span></div><h1>FormValidation.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.domain
+
+internal fun validateName(name: String): String? =
+<span class="fc bfc" id="L4" title="All 6 branches covered.">    if (name.trim().length in 3..80) null else &quot;Ingresa un nombre de 3 a 80 caracteres&quot;</span>
+
+internal fun validateTask(task: String): String? =
+<span class="fc bfc" id="L7" title="All 6 branches covered.">    if (task.trim().length in 3..160) null else &quot;Describe la tarea en 3 a 160 caracteres&quot;</span>
+
+internal fun validateProjectSelection(projectId: String?): String? =
+<span class="pc bpc" id="L10" title="1 of 6 branches missed.">    if (projectId.isNullOrBlank()) &quot;Selecciona un proyecto&quot; else null</span>
+
+<span class="fc" id="L12">internal data class ProjectErrors(</span>
+<span class="fc" id="L13">    val name: String?,</span>
+<span class="fc" id="L14">    val client: String?,</span>
+<span class="fc" id="L15">    val estimate: String?</span>
+) {
+<span class="fc bfc" id="L17" title="All 6 branches covered.">    val valid get() = name == null &amp;&amp; client == null &amp;&amp; estimate == null</span>
+}
+
+internal fun validateProject(name: String, client: String, estimate: Int?): ProjectErrors =
+<span class="fc" id="L21">    ProjectErrors(</span>
+<span class="fc" id="L22">        name = validateName(name),</span>
+<span class="pc bpc" id="L23" title="1 of 6 branches missed.">        client = if (client.trim().length in 2..60) null else &quot;Ingresa un cliente de 2 a 60 caracteres&quot;,</span>
+<span class="fc bfc" id="L24" title="All 4 branches covered.">        estimate = if (estimate != null &amp;&amp; estimate in 1..10000) null else &quot;Ingresa entre 1 y 10000 horas&quot;</span>
+<span class="fc" id="L25">    )</span>
+
+<span class="fc" id="L27">internal data class TimerErrors(val project: String?, val task: String?) {</span>
+<span class="pc bpc" id="L28" title="1 of 4 branches missed.">    val valid get() = project == null &amp;&amp; task == null</span>
+}
+
+internal fun validateTimer(projectId: String?, task: String): TimerErrors =
+<span class="fc" id="L32">    TimerErrors(validateProjectSelection(projectId), validateTask(task))</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

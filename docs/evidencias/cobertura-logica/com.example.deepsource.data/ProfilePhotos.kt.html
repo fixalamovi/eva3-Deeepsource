@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProfilePhotos.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Deepsource: dominio, datos, ViewModels y AppState</a> &gt; <a href="index.source.html" class="el_package">com.example.deepsource.data</a> &gt; <span class="el_source">ProfilePhotos.kt</span></div><h1>ProfilePhotos.kt</h1><pre class="source lang-java linenums">package com.example.deepsource.data
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.graphics.Matrix
+import android.media.ExifInterface
+import android.net.Uri
+import android.os.Build
+import android.util.AtomicFile
+import java.io.FileNotFoundException
+import java.io.IOException
+import java.util.UUID
+
+private const val MAX_PHOTO_EDGE = 640
+
+<span class="nc" id="L18">internal class ProfilePhotos(private val context: Context) {</span>
+<span class="nc" id="L19">    private val resolver get() = context.contentResolver</span>
+
+<span class="nc" id="L21">    fun load(uid: String): Bitmap? = try {</span>
+<span class="nc" id="L22">        file(uid).openRead().use { BitmapFactory.decodeStream(it) }</span>
+<span class="nc" id="L23">    } catch (_: FileNotFoundException) {</span>
+<span class="nc" id="L24">        null</span>
+<span class="nc" id="L25">    }</span>
+
+    fun save(uid: String, source: Uri): Bitmap {
+<span class="nc bnc" id="L28" title="All 2 branches missed.">        val bitmap = if (Build.VERSION.SDK_INT &gt;= 28) {</span>
+<span class="nc" id="L29">            ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, source)) { decoder, info, _ -&gt;</span>
+<span class="nc" id="L30">                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE</span>
+<span class="nc" id="L31">                val width = info.size.width</span>
+<span class="nc" id="L32">                val height = info.size.height</span>
+<span class="nc" id="L33">                val longest = maxOf(width, height)</span>
+<span class="nc bnc" id="L34" title="All 2 branches missed.">                if (longest &gt; MAX_PHOTO_EDGE) {</span>
+<span class="nc" id="L35">                    val scale = MAX_PHOTO_EDGE.toFloat() / longest</span>
+<span class="nc" id="L36">                    decoder.setTargetSize((width * scale).toInt().coerceAtLeast(1), (height * scale).toInt().coerceAtLeast(1))</span>
+                }
+<span class="nc" id="L38">            }</span>
+        } else {
+<span class="nc" id="L40">            decodeLegacyPhoto(source)</span>
+        }
+
+<span class="nc" id="L43">        val destination = file(uid)</span>
+<span class="nc" id="L44">        val output = destination.startWrite()</span>
+<span class="nc" id="L45">        try {</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 88, output)) throw IOException(&quot;No se pudo guardar la foto&quot;)</span>
+<span class="nc" id="L47">            destination.finishWrite(output)</span>
+<span class="nc" id="L48">        } catch (error: Exception) {</span>
+<span class="nc" id="L49">            destination.failWrite(output)</span>
+<span class="nc" id="L50">            throw error</span>
+        }
+<span class="nc" id="L52">        return bitmap</span>
+    }
+
+    fun remove(uid: String) {
+<span class="nc" id="L56">        val destination = file(uid)</span>
+<span class="nc" id="L57">        destination.delete()</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        if (destination.baseFile.exists()) throw IOException(&quot;No se pudo quitar la foto&quot;)</span>
+<span class="nc" id="L59">    }</span>
+
+    private fun file(uid: String): AtomicFile {
+<span class="nc" id="L62">        val key = UUID.nameUUIDFromBytes(uid.toByteArray(Charsets.UTF_8))</span>
+<span class="nc" id="L63">        return AtomicFile(context.filesDir.resolve(&quot;profile-photos/$key.jpg&quot;))</span>
+    }
+
+    private fun decodeLegacyPhoto(source: Uri): Bitmap {
+<span class="nc" id="L67">        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        resolver.openInputStream(source)?.use { BitmapFactory.decodeStream(it, null, options) }</span>
+<span class="nc" id="L69">        val longest = maxOf(options.outWidth, options.outHeight)</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        if (longest &lt;= 0) throw IOException(&quot;Imagen no disponible&quot;)</span>
+<span class="nc" id="L71">        options.inSampleSize = 1</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        while (longest / options.inSampleSize &gt; MAX_PHOTO_EDGE) options.inSampleSize *= 2</span>
+<span class="nc" id="L73">        options.inJustDecodeBounds = false</span>
+<span class="nc bnc" id="L74" title="All 4 branches missed.">        val bitmap = resolver.openInputStream(source)?.use { BitmapFactory.decodeStream(it, null, options) }</span>
+<span class="nc" id="L75">            ?: throw IOException(&quot;Imagen no disponible&quot;)</span>
+<span class="nc" id="L76">        val orientation = try {</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">            resolver.openInputStream(source)?.use {</span>
+<span class="nc" id="L78">                ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)</span>
+            }
+<span class="nc" id="L80">        } catch (_: IOException) {</span>
+<span class="nc" id="L81">            null</span>
+        }
+<span class="nc" id="L83">        val matrix = Matrix().apply {</span>
+<span class="nc" id="L84">            when (orientation) {</span>
+<span class="nc bnc" id="L85" title="All 4 branches missed.">                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -&gt; setScale(-1f, 1f)</span>
+<span class="nc bnc" id="L86" title="All 4 branches missed.">                ExifInterface.ORIENTATION_ROTATE_180 -&gt; setRotate(180f)</span>
+<span class="nc bnc" id="L87" title="All 4 branches missed.">                ExifInterface.ORIENTATION_FLIP_VERTICAL -&gt; setScale(1f, -1f)</span>
+<span class="nc bnc" id="L88" title="All 4 branches missed.">                ExifInterface.ORIENTATION_TRANSPOSE -&gt; { setRotate(90f); postScale(-1f, 1f) }</span>
+<span class="nc bnc" id="L89" title="All 4 branches missed.">                ExifInterface.ORIENTATION_ROTATE_90 -&gt; setRotate(90f)</span>
+<span class="nc bnc" id="L90" title="All 4 branches missed.">                ExifInterface.ORIENTATION_TRANSVERSE -&gt; { setRotate(270f); postScale(-1f, 1f) }</span>
+<span class="nc bnc" id="L91" title="All 4 branches missed.">                ExifInterface.ORIENTATION_ROTATE_270 -&gt; setRotate(270f)</span>
+            }
+<span class="nc" id="L93">        }</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        return if (matrix.isIdentity) bitmap</span>
+<span class="nc" id="L95">        else Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

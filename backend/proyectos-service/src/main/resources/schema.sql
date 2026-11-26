@@ -1,0 +1,24 @@
+CREATE TABLE IF NOT EXISTS users (
+ uid TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL COLLATE NOCASE UNIQUE,
+ salt BLOB, password_hash BLOB, provider TEXT NOT NULL,
+ attempts INTEGER NOT NULL DEFAULT 0, locked_until INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS sessions (
+ token_hash TEXT PRIMARY KEY, uid TEXT NOT NULL REFERENCES users(uid), expires_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS projects (
+ id TEXT PRIMARY KEY, uid TEXT NOT NULL REFERENCES users(uid), name TEXT NOT NULL, client TEXT NOT NULL,
+ estimate_minutes INTEGER NOT NULL CHECK(estimate_minutes > 0), color INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tasks (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), name TEXT NOT NULL COLLATE NOCASE,
+ UNIQUE(project_id,name)
+);
+CREATE INDEX IF NOT EXISTS projects_user ON projects(uid);
+
+CREATE TABLE IF NOT EXISTS google_accounts (
+ subject TEXT PRIMARY KEY, uid TEXT NOT NULL UNIQUE REFERENCES users(uid)
+);
+CREATE TABLE IF NOT EXISTS google_login_challenges (
+ nonce TEXT PRIMARY KEY, expires_at INTEGER NOT NULL
+);
